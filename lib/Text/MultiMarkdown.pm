@@ -135,6 +135,17 @@ If true, this disables the MultiMarkdown bibliography/citation handling.
 
 If true, this disables the MultiMarkdown definition list handling.
 
+=item break_at_newlines
+
+Adds C<< <br> >> tags at newlines in the input. As with "Github-flavoured"
+Markdown, writing
+
+    line one
+    line two
+
+will result in two lines of text when C<break_at_newlines> is enabled, instead
+of just one.
+
 =back
 
 A number of possible items of metadata can also be supplied as options.
@@ -228,6 +239,8 @@ sub new {
 
     $p{bibliography_title} ||= 'Bibliography'; # FIXME - Test and document, can also be in metadata!
 
+    $p{break_at_newlines} ||= defined $p{break_at_newlines} ? $p{break_newlines} : 0;
+
     my $self = { params => \%p };
     bless $self, ref($class) || $class;
     return $self;
@@ -300,6 +313,8 @@ sub _Markdown {
     # Turn block-level HTML blocks into hash entries
     $text = $self->_HashHTMLBlocks($text, {interpret_markdown_on_attribute => 1});
 
+    $text = $self->_Break_at_newlines($text) if $self->{break_at_newlines};
+
     $text = $self->_StripLinkDefinitions($text);
 
     # MMD only
@@ -335,6 +350,23 @@ sub _Markdown {
 #
 # Routines which are overridden for slightly different behaviour in MultiMarkdown
 #
+
+# in very clear cases, let newlines become <br /> tags
+sub _Break_at_newlines {
+    my ($self, $text) = @_;
+    
+    my $brs = sub {
+        my $str = defined $_[0] ? shift : '';
+        return $str if $str =~ /\n\n/;
+        $str =~ s/^\s+//;
+        $str =~ s/\s+$//;
+        return "$str  \n";
+    };
+
+    $text =~ s/^([\w<][^\n]*\n+)/$brs->($1)/gexm;
+
+    return $text;
+}
 
 # Delegate to super class, then do wiki links
 sub _RunSpanGamut {
